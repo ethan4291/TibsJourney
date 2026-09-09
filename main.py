@@ -2,13 +2,15 @@ import pygame
 import sys
 import json
 
+from data.game_text import WINDOW_TITLE, INTERACT_PROMPT, DIALOGUE
+
 pygame.init()
 
 screen_width = 800
 screen_height = 600
 
 screen = pygame.display.set_mode((screen_width, screen_height))
-pygame.display.set_caption("Dino Egg Collection")
+pygame.display.set_caption(WINDOW_TITLE)
 clock = pygame.time.Clock()
 FPS = 60
 camera_zoom = 4
@@ -38,11 +40,19 @@ with open("data/levels/level1.json", "r") as level_file:
 
 level_tiles = level_data["layers"][0]["tiles"]
 solid_tiles = []
+npc_rect = None
+npc_interact_rect = None
 for tile in level_tiles:
     if tile["tile"] in (1, 2):
         tile_x = tile["x"] * tile_size * camera_zoom
         tile_y = tile["y"] * tile_size * camera_zoom
         solid_tiles.append(pygame.Rect(tile_x, tile_y, tile_size * camera_zoom, tile_size * camera_zoom))
+    elif tile["tile"] == 3:
+        tile_x = tile["x"] * tile_size * camera_zoom
+        tile_y = tile["y"] * tile_size * camera_zoom
+        npc_rect = pygame.Rect(tile_x, tile_y, tile_size * camera_zoom, tile_size * camera_zoom)
+        interact_margin = tile_size * camera_zoom
+        npc_interact_rect = npc_rect.inflate(interact_margin * 2, interact_margin * 2)
 
 #player animation frames
 player_walk_frames = [playerwalk1, playerwalk2, playerwalk3, playerwalk4, playerwalk5, playerwalk6]
@@ -79,6 +89,45 @@ black = (0, 0, 0)
 white = (255, 255, 255)
 sky_blue = (135, 206, 235)
 
+#dialogue box (undertale-style)
+dialogue_active = False
+dialogue_font = pygame.font.SysFont("couriernew", 26)
+prompt_font = pygame.font.SysFont("couriernew", 20, bold=True)
+
+
+def wrap_text(text, font, max_width):
+    words = text.split(" ")
+    lines = []
+    current_line = ""
+    for word in words:
+        test_line = (current_line + " " + word).strip()
+        if font.size(test_line)[0] > max_width and current_line:
+            lines.append(current_line)
+            current_line = word
+        else:
+            current_line = test_line
+    if current_line:
+        lines.append(current_line)
+    return lines
+
+
+def draw_dialogue_box(surface, text):
+    box_margin = 20
+    box_height = 140
+    box_rect = pygame.Rect(box_margin, screen_height - box_height - box_margin, screen_width - box_margin * 2, box_height)
+    pygame.draw.rect(surface, black, box_rect)
+    pygame.draw.rect(surface, white, box_rect, 4)
+
+    text_padding = 20
+    lines = wrap_text(text, dialogue_font, box_rect.width - text_padding * 2)
+    for line_index, line in enumerate(lines):
+        line_surface = dialogue_font.render(line, True, white)
+        surface.blit(line_surface, (box_rect.x + text_padding, box_rect.y + text_padding + line_index * 34))
+
+    hint_surface = prompt_font.render(INTERACT_PROMPT, True, white)
+    surface.blit(hint_surface, (box_rect.right - hint_surface.get_width() - 16, box_rect.bottom - hint_surface.get_height() - 12))
+
+
 running = True
 while running:
     for event in pygame.event.get():
@@ -87,11 +136,18 @@ while running:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 running = False
+            if event.key == pygame.K_e:
+                if dialogue_active:
+                    dialogue_active = False
+                elif npc_interact_rect and player_rect.colliderect(npc_interact_rect):
+                    dialogue_active = True
     keys = pygame.key.get_pressed()
     frame_time = clock.get_time()
     left_pressed = keys[pygame.K_LEFT] or keys[pygame.K_a]
     right_pressed = keys[pygame.K_RIGHT] or keys[pygame.K_d]
     jump_input = keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]
+    if dialogue_active:
+        left_pressed = right_pressed = jump_input = False
     jump_pressed = jump_input and not jump_input_previous
     horizontal_input = int(right_pressed) - int(left_pressed)
 
@@ -198,6 +254,16 @@ while running:
     player_draw_x = round(player_x + (player_rect.width - scaled_player_image.get_width()) / 2)
     player_draw_y = round(player_y + player_rect.height - scaled_player_image.get_height())
     screen.blit(scaled_player_image, (player_draw_x - camera_x, player_draw_y - camera_y))
+
+    if npc_rect and not dialogue_active and npc_interact_rect and player_rect.colliderect(npc_interact_rect):
+        prompt_surface = prompt_font.render(INTERACT_PROMPT, True, white)
+        prompt_x = npc_rect.centerx - camera_x - prompt_surface.get_width() / 2
+        prompt_y = npc_rect.top - camera_y - prompt_surface.get_height() - 6
+        screen.blit(prompt_surface, (prompt_x, prompt_y))
+
+    if dialogue_active:
+        draw_dialogue_box(screen, DIALOGUE["tile3_npc"])
+
     pygame.display.flip()
     clock.tick(FPS)
 
