@@ -353,6 +353,7 @@ while running:
                         if quest["egg_interact_rect"] and player_rect.colliderect(quest["egg_interact_rect"]):
                             dialogue_active = True
                             active_npc = ("egg", quest["id"])
+                            dinointeract_sound.play()
                             dialogue_text = DIALOGUE[quest["egg_dialogue"]]
                             opened = True
                             break
