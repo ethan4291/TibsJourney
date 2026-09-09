@@ -91,8 +91,13 @@ sky_blue = (135, 206, 235)
 
 #dialogue box (undertale-style)
 dialogue_active = False
+has_egg = False
 dialogue_font = pygame.font.SysFont("couriernew", 26)
 prompt_font = pygame.font.SysFont("couriernew", 20, bold=True)
+
+egg_size = round(tile_size * camera_zoom * 0.55)
+egg_image = pygame.transform.scale(tile_images[3], (egg_size, egg_size))
+egg_overlap = round(egg_size * 0.35)
 
 
 def wrap_text(text, font, max_width):
@@ -139,7 +144,8 @@ while running:
             if event.key == pygame.K_e:
                 if dialogue_active:
                     dialogue_active = False
-                elif npc_interact_rect and player_rect.colliderect(npc_interact_rect):
+                    has_egg = True
+                elif not has_egg and npc_interact_rect and player_rect.colliderect(npc_interact_rect):
                     dialogue_active = True
     keys = pygame.key.get_pressed()
     frame_time = clock.get_time()
@@ -226,6 +232,8 @@ while running:
     camera_y = round(player_y - screen_height / 2 + camera_y_offset)
     screen.fill(sky_blue)
     for tile in level_tiles:
+        if tile["tile"] == 3 and has_egg:
+            continue
         tile_image = tile_images.get(tile["tile"])
         if tile_image is None:
             continue
@@ -255,7 +263,12 @@ while running:
     player_draw_y = round(player_y + player_rect.height - scaled_player_image.get_height())
     screen.blit(scaled_player_image, (player_draw_x - camera_x, player_draw_y - camera_y))
 
-    if npc_rect and not dialogue_active and npc_interact_rect and player_rect.colliderect(npc_interact_rect):
+    if has_egg:
+        egg_x = round(player_draw_x + scaled_player_image.get_width() / 2 - egg_size / 2)
+        egg_y = round(player_draw_y - egg_size + egg_overlap)
+        screen.blit(egg_image, (egg_x - camera_x, egg_y - camera_y))
+
+    if npc_rect and not has_egg and not dialogue_active and npc_interact_rect and player_rect.colliderect(npc_interact_rect):
         prompt_surface = prompt_font.render(INTERACT_PROMPT, True, white)
         prompt_x = npc_rect.centerx - camera_x - prompt_surface.get_width() / 2
         prompt_y = npc_rect.top - camera_y - prompt_surface.get_height() - 6
