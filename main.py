@@ -2,6 +2,7 @@ import pygame
 import sys
 import json
 import math
+import random
 
 from data.game_text import (
     WINDOW_TITLE,
@@ -14,6 +15,8 @@ from data.game_text import (
     CUTSCENE_ADVANCED_CAPTIONS,
     CUTSCENE_ADVANCED_FINALE,
 )
+from data.post_fx import PostFX
+from data.particles import ParticleSystem
 
 pygame.init()
 pygame.mixer.init()
@@ -23,10 +26,17 @@ pygame.mixer.music.play(loops=-1)
 screen_width = 800
 screen_height = 600
 
-screen = pygame.display.set_mode((screen_width, screen_height))
+screen = pygame.display.set_mode((screen_width, screen_height), pygame.OPENGL | pygame.DOUBLEBUF)
 pygame.display.set_caption(WINDOW_TITLE)
 clock = pygame.time.Clock()
 FPS = 60
+
+# All game drawing happens on this normal software surface; it is then run
+# through the moderngl post-processing pipeline (bloom, chromatic aberration,
+# vignette, grain, screen-shake wobble) and presented to the real GL window.
+game_surface = pygame.Surface((screen_width, screen_height))
+post_fx = PostFX(screen_width, screen_height)
+particles = ParticleSystem()
 camera_zoom = 4
 tile_size = 16
 camera_x_offset = 0
@@ -146,10 +156,22 @@ jump_buffer_timer = 0
 jump_input_previous = False
 player_rect = pygame.Rect(player_x, player_y, player_idle_image.get_width() * camera_zoom, player_idle_image.get_height() * camera_zoom)
 
+#game juice state
+squash_x = 1.0
+squash_y = 1.0
+hitstop_timer = 0
+SHAKE_MAX_OFFSET = 10
+
 #colors
 black = (0, 0, 0)
 white = (255, 255, 255)
 sky_blue = (135, 206, 235)
+DINO_COLORS = {
+    "yellow": (255, 221, 87),
+    "blue": (95, 175, 255),
+    "green": (110, 220, 120),
+    "red": (255, 105, 97),
+}
 
 #dialogue box (undertale-style)
 dialogue_active = False
@@ -306,6 +328,13 @@ while running:
                         if carried_quest == quest_id and not quest["delivered"]:
                             carried_quest = None
                             quest["delivered"] = True
+                            dino_rect = quest["dino_rect"]
+                            if dino_rect:
+                                dino_color = DINO_COLORS.get(quest_id, white)
+                                particles.spawn_sparkles(dino_rect.centerx, dino_rect.centery, dino_color, count=24)
+                            post_fx.add_flash(0.55)
+                            post_fx.add_shake(0.4)
+                            hitstop_timer = 90
                             if not cutscene_triggered and all(q["delivered"] for q in quests):
                                 cutscene_triggered = True
                                 cutscene_stage = "simple"
@@ -336,6 +365,15 @@ while running:
                                 break
     keys = pygame.key.get_pressed()
     frame_time = clock.get_time()
+    dt = frame_time / 1000.0
+    post_fx.update(dt)
+    particles.update(dt)
+    squash_x += (1.0 - squash_x) * 0.25
+    squash_y += (1.0 - squash_y) * 0.25
+
+    if hitstop_timer > 0:
+        hitstop_timer = max(0, hitstop_timer - frame_time)
+
     left_pressed = keys[pygame.K_LEFT] or keys[pygame.K_a]
     right_pressed = keys[pygame.K_RIGHT] or keys[pygame.K_d]
     jump_input = keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]
@@ -344,76 +382,87 @@ while running:
     jump_pressed = jump_input and not jump_input_previous
     horizontal_input = int(right_pressed) - int(left_pressed)
 
-    if horizontal_input != 0:
-        player_horizontal_velocity += horizontal_input * acceleration
-        player_horizontal_velocity = max(-player_speed, min(player_speed, player_horizontal_velocity))
-        player_is_flipped = horizontal_input < 0
-    elif player_horizontal_velocity > 0:
-        player_horizontal_velocity = max(0, player_horizontal_velocity - deceleration)
-    elif player_horizontal_velocity < 0:
-        player_horizontal_velocity = min(0, player_horizontal_velocity + deceleration)
-    player_x += player_horizontal_velocity
-    player_rect.x = round(player_x)
-    for tile_rect in solid_tiles:
-        if player_rect.colliderect(tile_rect):
-            if player_horizontal_velocity > 0:
-                player_rect.right = tile_rect.left
-            elif player_horizontal_velocity < 0:
-                player_rect.left = tile_rect.right
-            player_x = player_rect.x
+    if hitstop_timer <= 0:
+        if horizontal_input != 0:
+            player_horizontal_velocity += horizontal_input * acceleration
+            player_horizontal_velocity = max(-player_speed, min(player_speed, player_horizontal_velocity))
+            player_is_flipped = horizontal_input < 0
+        elif player_horizontal_velocity > 0:
+            player_horizontal_velocity = max(0, player_horizontal_velocity - deceleration)
+        elif player_horizontal_velocity < 0:
+            player_horizontal_velocity = min(0, player_horizontal_velocity + deceleration)
+        player_x += player_horizontal_velocity
+        player_rect.x = round(player_x)
+        for tile_rect in solid_tiles:
+            if player_rect.colliderect(tile_rect):
+                if player_horizontal_velocity > 0:
+                    player_rect.right = tile_rect.left
+                elif player_horizontal_velocity < 0:
+                    player_rect.left = tile_rect.right
+                player_x = player_rect.x
 
-    if jump_pressed:
-        jump_buffer_timer = jump_buffer_time
-    else:
-        jump_buffer_timer = max(0, jump_buffer_timer - frame_time)
+        if jump_pressed:
+            jump_buffer_timer = jump_buffer_time
+        else:
+            jump_buffer_timer = max(0, jump_buffer_timer - frame_time)
 
-    if player_on_ground:
-        coyote_timer = coyote_time
-    else:
-        coyote_timer = max(0, coyote_timer - frame_time)
+        if player_on_ground:
+            coyote_timer = coyote_time
+        else:
+            coyote_timer = max(0, coyote_timer - frame_time)
 
-    if jump_buffer_timer > 0 and coyote_timer > 0:
-        player_is_jumping = True
-        player_on_ground = False
-        player_vertical_velocity = -player_jump_power
-        jump_buffer_timer = 0
-        coyote_timer = 0
-        player_frame_index = 0
-        player_frame_timer = 0
-
-    if abs(player_horizontal_velocity) > 0.1 and player_on_ground:
-        player_frame_timer += frame_time
-        if player_frame_timer >= player_frame_delay:
+        if jump_buffer_timer > 0 and coyote_timer > 0:
+            player_is_jumping = True
+            player_on_ground = False
+            player_vertical_velocity = -player_jump_power
+            jump_buffer_timer = 0
+            coyote_timer = 0
+            player_frame_index = 0
             player_frame_timer = 0
-            player_frame_index = (player_frame_index + 1) % len(player_walk_frames)
-    else:
-        player_frame_index = 0
-    gravity = jump_gravity
-    if not jump_input and player_vertical_velocity < 0:
-        gravity *= jump_hold_multiplier
-    player_vertical_velocity = min(max_fall_speed, player_vertical_velocity + gravity)
-    player_y += player_vertical_velocity
-    player_rect.y = round(player_y)
-    player_on_ground = False
-    for tile_rect in solid_tiles:
-        if player_rect.colliderect(tile_rect):
-            if player_vertical_velocity > 0:
-                player_rect.bottom = tile_rect.top
-                player_is_jumping = False
-            elif player_vertical_velocity < 0:
-                player_rect.top = tile_rect.bottom
-            player_vertical_velocity = 0
-            player_y = player_rect.y
+            squash_x, squash_y = 0.75, 1.3
+            post_fx.add_shake(0.08)
 
-    ground_check_rect = player_rect.move(0, 1)
-    for tile_rect in solid_tiles:
-        if ground_check_rect.colliderect(tile_rect):
-            player_on_ground = True
-            break
-    if not player_on_ground:
-        player_is_jumping = True
+        if abs(player_horizontal_velocity) > 0.1 and player_on_ground:
+            player_frame_timer += frame_time
+            if player_frame_timer >= player_frame_delay:
+                player_frame_timer = 0
+                player_frame_index = (player_frame_index + 1) % len(player_walk_frames)
+        else:
+            player_frame_index = 0
+        gravity = jump_gravity
+        if not jump_input and player_vertical_velocity < 0:
+            gravity *= jump_hold_multiplier
+        player_vertical_velocity = min(max_fall_speed, player_vertical_velocity + gravity)
+        pre_fall_velocity = player_vertical_velocity
+        was_on_ground = player_on_ground
+        player_y += player_vertical_velocity
+        player_rect.y = round(player_y)
+        player_on_ground = False
+        for tile_rect in solid_tiles:
+            if player_rect.colliderect(tile_rect):
+                if player_vertical_velocity > 0:
+                    player_rect.bottom = tile_rect.top
+                    player_is_jumping = False
+                elif player_vertical_velocity < 0:
+                    player_rect.top = tile_rect.bottom
+                player_vertical_velocity = 0
+                player_y = player_rect.y
 
-    jump_input_previous = jump_input
+        ground_check_rect = player_rect.move(0, 1)
+        for tile_rect in solid_tiles:
+            if ground_check_rect.colliderect(tile_rect):
+                player_on_ground = True
+                break
+        if not player_on_ground:
+            player_is_jumping = True
+
+        if player_on_ground and not was_on_ground and pre_fall_velocity > 0:
+            impact = min(1.0, pre_fall_velocity / max_fall_speed)
+            squash_x, squash_y = 1.0 + impact * 0.35, 1.0 - impact * 0.45
+            post_fx.add_shake(impact * 0.35)
+            particles.spawn_landing_dust(player_rect.centerx, player_rect.bottom, impact)
+
+        jump_input_previous = jump_input
 
     if cutscene_stage == "advanced":
         cutscene_adv_timer += frame_time
@@ -444,7 +493,11 @@ while running:
         camera_y = round(player_y - screen_height / 2 + camera_y_offset)
     # while "simple" or "advanced_finale" is active the camera stays where it last was
 
-    screen.fill(sky_blue)
+    shake_amount = post_fx.shake_trauma ** 2
+    render_camera_x = camera_x + round(random.uniform(-1, 1) * shake_amount * SHAKE_MAX_OFFSET)
+    render_camera_y = camera_y + round(random.uniform(-1, 1) * shake_amount * SHAKE_MAX_OFFSET)
+
+    game_surface.fill(sky_blue)
     for tile in level_tiles:
         tile_id = tile["tile"]
         egg_quest = quest_by_egg_tile.get(tile_id)
@@ -460,9 +513,9 @@ while running:
             tile_image = pygame.transform.flip(tile_image, True, False)
         if tile["rot"] != 0:
             tile_image = pygame.transform.rotate(tile_image, tile["rot"])
-        tile_x = tile["x"] * tile_size * camera_zoom - camera_x
-        tile_y = tile["y"] * tile_size * camera_zoom - camera_y
-        screen.blit(tile_image, (tile_x, tile_y))
+        tile_x = tile["x"] * tile_size * camera_zoom - render_camera_x
+        tile_y = tile["y"] * tile_size * camera_zoom - render_camera_y
+        game_surface.blit(tile_image, (tile_x, tile_y))
 
     for quest in quests:
         dino_rect = quest["dino_rect"]
@@ -471,7 +524,7 @@ while running:
         scaled_dino_image = scaled_dino_images[quest["id"]]
         dino_draw_x = dino_rect.x + (dino_rect.width - scaled_dino_image.get_width()) / 2
         dino_draw_y = dino_rect.bottom - scaled_dino_image.get_height()
-        screen.blit(scaled_dino_image, (dino_draw_x - camera_x, dino_draw_y - camera_y))
+        game_surface.blit(scaled_dino_image, (dino_draw_x - render_camera_x, dino_draw_y - render_camera_y))
 
     show_player = cutscene_stage not in ("advanced", "advanced_finale")
     if show_player:
@@ -488,14 +541,27 @@ while running:
 
         if player_is_flipped:
             scaled_player_image = pygame.transform.flip(scaled_player_image, True, False)
-        player_draw_x = round(player_x + (player_rect.width - scaled_player_image.get_width()) / 2)
-        player_draw_y = round(player_y + player_rect.height - scaled_player_image.get_height())
-        screen.blit(scaled_player_image, (player_draw_x - camera_x, player_draw_y - camera_y))
+
+        stretched_width = max(1, round(scaled_player_image.get_width() * squash_x))
+        stretched_height = max(1, round(scaled_player_image.get_height() * squash_y))
+        stretched_player_image = pygame.transform.scale(scaled_player_image, (stretched_width, stretched_height))
+
+        idle_bob = 0
+        if player_on_ground and abs(player_horizontal_velocity) <= 0.1:
+            idle_bob = round(math.sin(pygame.time.get_ticks() / 300) * 2)
+
+        player_center_x = round(player_x + player_rect.width / 2)
+        player_feet_y = round(player_y + player_rect.height)
+        player_draw_x = player_center_x - stretched_width // 2
+        player_draw_y = player_feet_y - stretched_height + idle_bob
+        game_surface.blit(stretched_player_image, (player_draw_x - render_camera_x, player_draw_y - render_camera_y))
 
         if carried_quest:
             egg_x = round(player_rect.centerx - egg_size / 2)
-            egg_y = round(player_rect.top - egg_size + egg_overlap)
-            screen.blit(egg_images[carried_quest], (egg_x - camera_x, egg_y - camera_y))
+            egg_y = round(player_rect.top - egg_size + egg_overlap) + idle_bob
+            game_surface.blit(egg_images[carried_quest], (egg_x - render_camera_x, egg_y - render_camera_y))
+
+    particles.draw(game_surface, render_camera_x, render_camera_y)
 
     prompt_target_rect = None
     if not dialogue_active and cutscene_stage is None:
@@ -511,24 +577,26 @@ while running:
                     prompt_target_rect = quest["dino_rect"]
                     break
     if prompt_target_rect:
+        prompt_bob = round(math.sin(pygame.time.get_ticks() / 200) * 3)
         prompt_surface = prompt_font.render(INTERACT_PROMPT, True, white)
-        prompt_x = prompt_target_rect.centerx - camera_x - prompt_surface.get_width() / 2
-        prompt_y = prompt_target_rect.top - camera_y - prompt_surface.get_height() - 6
-        screen.blit(prompt_surface, (prompt_x, prompt_y))
+        prompt_x = prompt_target_rect.centerx - render_camera_x - prompt_surface.get_width() / 2
+        prompt_y = prompt_target_rect.top - render_camera_y - prompt_surface.get_height() - 6 + prompt_bob
+        game_surface.blit(prompt_surface, (prompt_x, prompt_y))
 
     if dialogue_active:
-        draw_dialogue_box(screen, dialogue_text)
+        draw_dialogue_box(game_surface, dialogue_text)
     elif cutscene_stage == "intro":
-        draw_dialogue_box(screen, INTRO_TEXT[intro_line_index], hint=CONTINUE_PROMPT)
+        draw_dialogue_box(game_surface, INTRO_TEXT[intro_line_index], hint=CONTINUE_PROMPT)
     elif cutscene_stage == "simple":
-        draw_dialogue_box(screen, CUTSCENE_SIMPLE[cutscene_line_index], hint=CONTINUE_PROMPT)
+        draw_dialogue_box(game_surface, CUTSCENE_SIMPLE[cutscene_line_index], hint=CONTINUE_PROMPT)
     elif cutscene_stage == "advanced":
         current_quest = quests[cutscene_adv_index]
-        draw_cutscene_caption(screen, CUTSCENE_ADVANCED_CAPTIONS[current_quest["id"]])
-        draw_cutscene_heart(screen, current_quest["dino_rect"], camera_x, camera_y, pygame.time.get_ticks())
+        draw_cutscene_caption(game_surface, CUTSCENE_ADVANCED_CAPTIONS[current_quest["id"]])
+        draw_cutscene_heart(game_surface, current_quest["dino_rect"], render_camera_x, render_camera_y, pygame.time.get_ticks())
     elif cutscene_stage == "advanced_finale":
-        draw_cutscene_finale(screen, CUTSCENE_ADVANCED_FINALE, hint=CONTINUE_PROMPT)
+        draw_cutscene_finale(game_surface, CUTSCENE_ADVANCED_FINALE, hint=CONTINUE_PROMPT)
 
+    post_fx.render(game_surface)
     pygame.display.flip()
     clock.tick(FPS)
 
