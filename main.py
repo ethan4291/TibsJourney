@@ -9,12 +9,16 @@ from data.game_text import (
     CONTINUE_PROMPT,
     DIALOGUE,
     DINO_ORDER,
+    INTRO_TEXT,
     CUTSCENE_SIMPLE,
     CUTSCENE_ADVANCED_CAPTIONS,
     CUTSCENE_ADVANCED_FINALE,
 )
 
 pygame.init()
+pygame.mixer.init()
+pygame.mixer.music.load("data/audio/maingamemusic_loop.wav")
+pygame.mixer.music.play(loops=-1)
 
 screen_width = 800
 screen_height = 600
@@ -155,8 +159,11 @@ carried_quest = None
 dialogue_font = pygame.font.SysFont("couriernew", 26)
 prompt_font = pygame.font.SysFont("couriernew", 20, bold=True)
 
+#intro cutscene (plays once at the start of the game)
+intro_line_index = 0
+
 #cutscene state (plays once every egg has been returned to its parent)
-cutscene_stage = None  # None | "simple" | "advanced" | "advanced_finale"
+cutscene_stage = "intro"  # "intro" | None | "simple" | "advanced" | "advanced_finale"
 cutscene_triggered = False
 cutscene_line_index = 0
 cutscene_adv_index = 0
@@ -263,7 +270,11 @@ while running:
             if event.key == pygame.K_ESCAPE:
                 running = False
             if event.key == pygame.K_e:
-                if cutscene_stage == "simple":
+                if cutscene_stage == "intro":
+                    intro_line_index += 1
+                    if intro_line_index >= len(INTRO_TEXT):
+                        cutscene_stage = None
+                elif cutscene_stage == "simple":
                     cutscene_line_index += 1
                     if cutscene_line_index >= len(CUTSCENE_SIMPLE):
                         cutscene_stage = "advanced"
@@ -498,6 +509,8 @@ while running:
 
     if dialogue_active:
         draw_dialogue_box(screen, dialogue_text)
+    elif cutscene_stage == "intro":
+        draw_dialogue_box(screen, INTRO_TEXT[intro_line_index], hint=CONTINUE_PROMPT)
     elif cutscene_stage == "simple":
         draw_dialogue_box(screen, CUTSCENE_SIMPLE[cutscene_line_index], hint=CONTINUE_PROMPT)
     elif cutscene_stage == "advanced":

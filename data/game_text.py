@@ -5,6 +5,14 @@ WINDOW_TITLE = "Tibs Journey"
 INTERACT_PROMPT = "[E]"
 CONTINUE_PROMPT = "[E] Continue"
 
+INTRO_TEXT = [
+    "Welcome to Tib's Journey!",
+    "Use A/D or the Arrow Keys to move, and W, Up, or Space to jump.",
+    "Somewhere out there, four baby dinosaurs have been separated from their parents.",
+    "Find each lost egg, then bring it back to its worried parent. Press [E] to talk and interact.",
+    "Good luck, Tib!",
+]
+
 DIALOGUE = {
     "yellow_egg": "Oh Tib thank god you are here! You found me! Please return me to my father, please!",
     "yellowdino_ask": "Oh no... I can't find my baby egg anywhere! Please, could you help me look for it?",
