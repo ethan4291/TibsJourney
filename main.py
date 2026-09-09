@@ -23,6 +23,10 @@ pygame.mixer.init()
 pygame.mixer.music.load("data/audio/maingamemusic_loop.wav")
 pygame.mixer.music.play(loops=-1)
 
+dinointeract_sound = pygame.mixer.Sound("data/audio/dinointeract.wav")
+eggpickup_sound = pygame.mixer.Sound("data/audio/eggpickup.wav")
+jump_sound = pygame.mixer.Sound("data/audio/jump.wav")
+
 screen_width = 800
 screen_height = 600
 
@@ -324,6 +328,7 @@ while running:
                     if kind == "egg":
                         if carried_quest is None and not quest["delivered"]:
                             carried_quest = quest_id
+                            eggpickup_sound.play()
                     elif kind == "dino":
                         if carried_quest == quest_id and not quest["delivered"]:
                             carried_quest = None
@@ -356,6 +361,7 @@ while running:
                             if quest["dino_interact_rect"] and player_rect.colliderect(quest["dino_interact_rect"]):
                                 dialogue_active = True
                                 active_npc = ("dino", quest["id"])
+                                dinointeract_sound.play()
                                 if quest["delivered"]:
                                     dialogue_text = DIALOGUE[quest["done"]]
                                 elif carried_quest == quest["id"]:
@@ -417,6 +423,7 @@ while running:
             player_vertical_velocity = -player_jump_power
             jump_buffer_timer = 0
             coyote_timer = 0
+            jump_sound.play()
             player_frame_index = 0
             player_frame_timer = 0
             squash_x, squash_y = 0.75, 1.3
