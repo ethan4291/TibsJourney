@@ -33,7 +33,12 @@ tile_images = {
     1: pygame.image.load("data/img/tile1.png").convert_alpha(),
     2: pygame.image.load("data/img/tile2.png").convert_alpha(),
     3: pygame.image.load("data/img/tile3.png").convert_alpha(),
-    4: pygame.image.load("data/img/yellowdinospawnpos.png").convert_alpha()
+    4: pygame.image.load("data/img/yellowdinospawnpos.png").convert_alpha(),
+    5: pygame.image.load("data/img/yellowdinoegg.png").convert_alpha(),
+    6: pygame.image.load("data/img/yellowdinoegg_collected.png").convert_alpha(),
+    7: pygame.image.load("data/img/yellowdinoegg_missing.png").convert_alpha(),
+    8: pygame.image.load("data/img/yellowdinoegg_found.png").convert_alpha(),
+
 }
 yellowdino_image = pygame.image.load("data/img/yellowdino.png").convert_alpha()
 
