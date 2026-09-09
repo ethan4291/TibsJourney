@@ -7399,7 +7399,7 @@
                 {
                     "x": 20,
                     "y": 8,
-                    "tile": 4,
+                    "tile": 0,
                     "index": 924,
                     "flipX": false,
                     "rot": 0
@@ -8303,7 +8303,7 @@
                 {
                     "x": 20,
                     "y": 9,
-                    "tile": 0,
+                    "tile": 4,
                     "index": 1037,
                     "flipX": false,
                     "rot": 0
