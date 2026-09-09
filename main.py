@@ -35,6 +35,7 @@ tile_images = {
     3: pygame.image.load("data/img/tile3.png").convert_alpha(),
     4: pygame.image.load("data/img/yellowdinospawnpos.png").convert_alpha()
 }
+yellowdino_image = pygame.image.load("data/img/yellowdino.png").convert_alpha()
 
 with open("data/levels/level1.json", "r") as level_file:
     level_data = json.load(level_file)
@@ -43,6 +44,9 @@ level_tiles = level_data["layers"][0]["tiles"]
 solid_tiles = []
 npc_rect = None
 npc_interact_rect = None
+dino_rect = None
+dino_interact_rect = None
+interact_margin = tile_size * camera_zoom
 for tile in level_tiles:
     if tile["tile"] in (1, 2):
         tile_x = tile["x"] * tile_size * camera_zoom
@@ -52,8 +56,12 @@ for tile in level_tiles:
         tile_x = tile["x"] * tile_size * camera_zoom
         tile_y = tile["y"] * tile_size * camera_zoom
         npc_rect = pygame.Rect(tile_x, tile_y, tile_size * camera_zoom, tile_size * camera_zoom)
-        interact_margin = tile_size * camera_zoom
         npc_interact_rect = npc_rect.inflate(interact_margin * 2, interact_margin * 2)
+    elif tile["tile"] == 4:
+        tile_x = tile["x"] * tile_size * camera_zoom
+        tile_y = tile["y"] * tile_size * camera_zoom
+        dino_rect = pygame.Rect(tile_x, tile_y, tile_size * camera_zoom, tile_size * camera_zoom)
+        dino_interact_rect = dino_rect.inflate(interact_margin * 2, interact_margin * 2)
 
 #player animation frames
 player_walk_frames = [playerwalk1, playerwalk2, playerwalk3, playerwalk4, playerwalk5, playerwalk6]
@@ -92,13 +100,18 @@ sky_blue = (135, 206, 235)
 
 #dialogue box (undertale-style)
 dialogue_active = False
+dialogue_text = ""
+active_npc = None
 has_egg = False
+quest_complete = False
 dialogue_font = pygame.font.SysFont("couriernew", 26)
 prompt_font = pygame.font.SysFont("couriernew", 20, bold=True)
 
 egg_size = round(tile_size * camera_zoom * 0.75)
 egg_image = pygame.transform.scale(tile_images[3], (egg_size, egg_size))
 egg_overlap = round(egg_size * 0.35)
+
+scaled_dino_image = pygame.transform.scale(yellowdino_image, (yellowdino_image.get_width() * camera_zoom, yellowdino_image.get_height() * camera_zoom))
 
 
 def wrap_text(text, font, max_width):
@@ -145,9 +158,25 @@ while running:
             if event.key == pygame.K_e:
                 if dialogue_active:
                     dialogue_active = False
-                    has_egg = True
+                    if active_npc == "tib_egg":
+                        has_egg = True
+                    elif active_npc == "yellow_dino" and has_egg and not quest_complete:
+                        has_egg = False
+                        quest_complete = True
+                    active_npc = None
                 elif not has_egg and npc_interact_rect and player_rect.colliderect(npc_interact_rect):
                     dialogue_active = True
+                    active_npc = "tib_egg"
+                    dialogue_text = DIALOGUE["tile3_npc"]
+                elif dino_interact_rect and player_rect.colliderect(dino_interact_rect):
+                    dialogue_active = True
+                    active_npc = "yellow_dino"
+                    if quest_complete:
+                        dialogue_text = DIALOGUE["yellowdino_done"]
+                    elif has_egg:
+                        dialogue_text = DIALOGUE["yellowdino_thanks"]
+                    else:
+                        dialogue_text = DIALOGUE["yellowdino_ask"]
     keys = pygame.key.get_pressed()
     frame_time = clock.get_time()
     left_pressed = keys[pygame.K_LEFT] or keys[pygame.K_a]
@@ -233,7 +262,9 @@ while running:
     camera_y = round(player_y - screen_height / 2 + camera_y_offset)
     screen.fill(sky_blue)
     for tile in level_tiles:
-        if tile["tile"] == 3 and has_egg:
+        if tile["tile"] == 3 and (has_egg or quest_complete):
+            continue
+        if tile["tile"] == 4:
             continue
         tile_image = tile_images.get(tile["tile"])
         if tile_image is None:
@@ -246,6 +277,11 @@ while running:
         tile_x = tile["x"] * tile_size * camera_zoom - camera_x
         tile_y = tile["y"] * tile_size * camera_zoom - camera_y
         screen.blit(tile_image, (tile_x, tile_y))
+
+    if dino_rect:
+        dino_draw_x = dino_rect.x + (dino_rect.width - scaled_dino_image.get_width()) / 2
+        dino_draw_y = dino_rect.bottom - scaled_dino_image.get_height()
+        screen.blit(scaled_dino_image, (dino_draw_x - camera_x, dino_draw_y - camera_y))
 
     #scale using camera zoom
     if not player_on_ground and player_vertical_velocity < 0:
@@ -269,14 +305,20 @@ while running:
         egg_y = round(player_rect.top - egg_size + egg_overlap)
         screen.blit(egg_image, (egg_x - camera_x, egg_y - camera_y))
 
-    if npc_rect and not has_egg and not dialogue_active and npc_interact_rect and player_rect.colliderect(npc_interact_rect):
+    prompt_target_rect = None
+    if not dialogue_active:
+        if not has_egg and npc_rect and npc_interact_rect and player_rect.colliderect(npc_interact_rect):
+            prompt_target_rect = npc_rect
+        elif dino_rect and dino_interact_rect and player_rect.colliderect(dino_interact_rect):
+            prompt_target_rect = dino_rect
+    if prompt_target_rect:
         prompt_surface = prompt_font.render(INTERACT_PROMPT, True, white)
-        prompt_x = npc_rect.centerx - camera_x - prompt_surface.get_width() / 2
-        prompt_y = npc_rect.top - camera_y - prompt_surface.get_height() - 6
+        prompt_x = prompt_target_rect.centerx - camera_x - prompt_surface.get_width() / 2
+        prompt_y = prompt_target_rect.top - camera_y - prompt_surface.get_height() - 6
         screen.blit(prompt_surface, (prompt_x, prompt_y))
 
     if dialogue_active:
-        draw_dialogue_box(screen, DIALOGUE["tile3_npc"])
+        draw_dialogue_box(screen, dialogue_text)
 
     pygame.display.flip()
     clock.tick(FPS)
