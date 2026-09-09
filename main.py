@@ -32,7 +32,8 @@ playerfall = pygame.image.load("data/img/playerfall.png").convert_alpha()
 tile_images = {
     1: pygame.image.load("data/img/tile1.png").convert_alpha(),
     2: pygame.image.load("data/img/tile2.png").convert_alpha(),
-    3: pygame.image.load("data/img/tile3.png").convert_alpha()
+    3: pygame.image.load("data/img/tile3.png").convert_alpha(),
+    4: pygame.image.load("data/img/yellowdinospawnpos.png").convert_alpha()
 }
 
 with open("data/levels/level1.json", "r") as level_file:
