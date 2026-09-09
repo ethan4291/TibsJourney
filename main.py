@@ -201,16 +201,18 @@ def wrap_text(text, font, max_width):
 
 def draw_dialogue_box(surface, text, hint=INTERACT_PROMPT):
     box_margin = 20
-    box_height = 140
+    text_padding = 20
+    line_height = 34
+    max_width = screen_width - box_margin * 2 - text_padding * 2
+    lines = wrap_text(text, dialogue_font, max_width)
+    box_height = max(140, text_padding * 2 + len(lines) * line_height + 30)
     box_rect = pygame.Rect(box_margin, screen_height - box_height - box_margin, screen_width - box_margin * 2, box_height)
     pygame.draw.rect(surface, black, box_rect)
     pygame.draw.rect(surface, white, box_rect, 4)
 
-    text_padding = 20
-    lines = wrap_text(text, dialogue_font, box_rect.width - text_padding * 2)
     for line_index, line in enumerate(lines):
         line_surface = dialogue_font.render(line, True, white)
-        surface.blit(line_surface, (box_rect.x + text_padding, box_rect.y + text_padding + line_index * 34))
+        surface.blit(line_surface, (box_rect.x + text_padding, box_rect.y + text_padding + line_index * line_height))
 
     hint_surface = prompt_font.render(hint, True, white)
     surface.blit(hint_surface, (box_rect.right - hint_surface.get_width() - 16, box_rect.bottom - hint_surface.get_height() - 12))
@@ -218,14 +220,21 @@ def draw_dialogue_box(surface, text, hint=INTERACT_PROMPT):
 
 def draw_cutscene_caption(surface, text):
     box_margin = 20
-    box_height = 70
+    text_padding = 16
+    line_height = 34
+    max_width = screen_width - box_margin * 2 - text_padding * 2
+    lines = wrap_text(text, dialogue_font, max_width)
+    box_height = text_padding * 2 + len(lines) * line_height
     box_rect = pygame.Rect(box_margin, box_margin, screen_width - box_margin * 2, box_height)
     overlay = pygame.Surface((box_rect.width, box_rect.height), pygame.SRCALPHA)
     overlay.fill((0, 0, 0, 170))
     surface.blit(overlay, box_rect.topleft)
     pygame.draw.rect(surface, white, box_rect, 3)
-    text_surface = dialogue_font.render(text, True, white)
-    surface.blit(text_surface, (box_rect.centerx - text_surface.get_width() / 2, box_rect.centery - text_surface.get_height() / 2))
+    for line_index, line in enumerate(lines):
+        line_surface = dialogue_font.render(line, True, white)
+        line_x = box_rect.centerx - line_surface.get_width() / 2
+        line_y = box_rect.y + text_padding + line_index * line_height
+        surface.blit(line_surface, (line_x, line_y))
 
 
 def draw_cutscene_heart(surface, dino_rect, camera_x, camera_y, ticks):
