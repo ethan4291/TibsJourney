@@ -95,7 +95,7 @@ has_egg = False
 dialogue_font = pygame.font.SysFont("couriernew", 26)
 prompt_font = pygame.font.SysFont("couriernew", 20, bold=True)
 
-egg_size = round(tile_size * camera_zoom * 0.55)
+egg_size = round(tile_size * camera_zoom * 0.75)
 egg_image = pygame.transform.scale(tile_images[3], (egg_size, egg_size))
 egg_overlap = round(egg_size * 0.35)
 
@@ -264,8 +264,8 @@ while running:
     screen.blit(scaled_player_image, (player_draw_x - camera_x, player_draw_y - camera_y))
 
     if has_egg:
-        egg_x = round(player_draw_x + scaled_player_image.get_width() / 2 - egg_size / 2)
-        egg_y = round(player_draw_y - egg_size + egg_overlap)
+        egg_x = round(player_rect.centerx - egg_size / 2)
+        egg_y = round(player_rect.top - egg_size + egg_overlap)
         screen.blit(egg_image, (egg_x - camera_x, egg_y - camera_y))
 
     if npc_rect and not has_egg and not dialogue_active and npc_interact_rect and player_rect.colliderect(npc_interact_rect):
