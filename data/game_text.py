@@ -8,7 +8,7 @@ CONTINUE_PROMPT = "[E] Continue"
 INTRO_TEXT = [
     "Welcome to Tib's Journey!",
     "Use A/D or the Arrow Keys to move, and W, Up, or Space to jump.",
-    "Somewhere out there, four baby dinosaurs have been separated from their parents.",
+    "Somewhere out there, four baby dinosaur eggs have been separated from their parents.",
     "Find each lost egg, then bring it back to its worried parent. Press [E] to talk and interact.",
     "Good luck, Tib!",
 ]
