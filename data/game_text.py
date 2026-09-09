@@ -10,6 +10,7 @@ INTRO_TEXT = [
     "Use A/D or the Arrow Keys to move, and W, Up, or Space to jump.",
     "Somewhere out there, four baby dinosaur eggs have been separated from their parents.",
     "Find each lost egg, then bring it back to its worried parent. Press [E] to talk and interact.",
+    "Carrying an egg but want a different one? Press [E] while not near anyone to throw it back down.",
     "Good luck, Tib!",
 ]
 

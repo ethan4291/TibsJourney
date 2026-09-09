@@ -370,6 +370,18 @@ while running:
                                 else:
                                     dialogue_text = DIALOGUE[quest["ask"]]
                                 break
+                    if not opened and carried_quest is not None:
+                        thrown_quest = quest_lookup[carried_quest]
+                        throw_direction = -1 if player_is_flipped else 1
+                        throw_distance = tile_size * camera_zoom * random.uniform(2.0, 3.5)
+                        old_egg_rect = thrown_quest["egg_rect"]
+                        new_egg_rect = old_egg_rect.copy() if old_egg_rect else pygame.Rect(0, 0, tile_size * camera_zoom, tile_size * camera_zoom)
+                        new_egg_rect.centerx = round(player_rect.centerx + throw_direction * throw_distance)
+                        new_egg_rect.bottom = player_rect.bottom
+                        thrown_quest["egg_rect"] = new_egg_rect
+                        thrown_quest["egg_interact_rect"] = new_egg_rect.inflate(interact_margin * 2, interact_margin * 2)
+                        carried_quest = None
+                        eggpickup_sound.play()
     keys = pygame.key.get_pressed()
     frame_time = clock.get_time()
     dt = frame_time / 1000.0
@@ -508,8 +520,7 @@ while running:
     game_surface.fill(sky_blue)
     for tile in level_tiles:
         tile_id = tile["tile"]
-        egg_quest = quest_by_egg_tile.get(tile_id)
-        if egg_quest and (egg_quest["delivered"] or carried_quest == egg_quest["id"]):
+        if tile_id in quest_by_egg_tile:
             continue
         if tile_id in quest_by_dino_tile:
             continue
@@ -534,6 +545,17 @@ while running:
         dino_draw_y = dino_rect.bottom - scaled_dino_image.get_height()
         game_surface.blit(scaled_dino_image, (dino_draw_x - render_camera_x, dino_draw_y - render_camera_y))
 
+    for quest in quests:
+        if quest["delivered"] or carried_quest == quest["id"]:
+            continue
+        egg_rect = quest["egg_rect"]
+        if not egg_rect:
+            continue
+        ground_egg_image = egg_images[quest["id"]]
+        ground_egg_x = egg_rect.centerx - ground_egg_image.get_width() / 2
+        ground_egg_y = egg_rect.bottom - ground_egg_image.get_height()
+        game_surface.blit(ground_egg_image, (ground_egg_x - render_camera_x, ground_egg_y - render_camera_y))
+
     show_player = cutscene_stage not in ("advanced", "advanced_finale")
     if show_player:
         #scale using camera zoom
@@ -550,23 +572,23 @@ while running:
         if player_is_flipped:
             scaled_player_image = pygame.transform.flip(scaled_player_image, True, False)
 
-        stretched_width = max(1, round(scaled_player_image.get_width() * squash_x))
-        stretched_height = max(1, round(scaled_player_image.get_height() * squash_y))
-        stretched_player_image = pygame.transform.scale(scaled_player_image, (stretched_width, stretched_height))
-
-        idle_bob = 0
+        idle_squash_y = 1.0
         if player_on_ground and abs(player_horizontal_velocity) <= 0.1:
-            idle_bob = round(math.sin(pygame.time.get_ticks() / 300) * 2)
+            idle_squash_y = 1.0 + math.sin(pygame.time.get_ticks() / 300) * 0.02
+
+        stretched_width = max(1, round(scaled_player_image.get_width() * squash_x))
+        stretched_height = max(1, round(scaled_player_image.get_height() * squash_y * idle_squash_y))
+        stretched_player_image = pygame.transform.scale(scaled_player_image, (stretched_width, stretched_height))
 
         player_center_x = round(player_x + player_rect.width / 2)
         player_feet_y = round(player_y + player_rect.height)
         player_draw_x = player_center_x - stretched_width // 2
-        player_draw_y = player_feet_y - stretched_height + idle_bob
+        player_draw_y = player_feet_y - stretched_height
         game_surface.blit(stretched_player_image, (player_draw_x - render_camera_x, player_draw_y - render_camera_y))
 
         if carried_quest:
             egg_x = round(player_rect.centerx - egg_size / 2)
-            egg_y = round(player_rect.top - egg_size + egg_overlap) + idle_bob
+            egg_y = round(player_rect.top - egg_size + egg_overlap)
             game_surface.blit(egg_images[carried_quest], (egg_x - render_camera_x, egg_y - render_camera_y))
 
     particles.draw(game_surface, render_camera_x, render_camera_y)
