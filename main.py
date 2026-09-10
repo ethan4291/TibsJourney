@@ -11,7 +11,6 @@ from data.game_text import (
     DIALOGUE,
     DINO_ORDER,
     INTRO_TEXT,
-    CUTSCENE_SIMPLE,
     CUTSCENE_ADVANCED_CAPTIONS,
     CUTSCENE_ADVANCED_FINALE,
 )
@@ -191,9 +190,8 @@ prompt_font = pygame.font.SysFont("couriernew", 20, bold=True)
 intro_line_index = 0
 
 #cutscene state (plays once every egg has been returned to its parent)
-cutscene_stage = "intro"  # "intro" | None | "simple" | "advanced" | "advanced_finale"
+cutscene_stage = "intro"  # "intro" | None | "advanced" | "advanced_finale"
 cutscene_triggered = False
-cutscene_line_index = 0
 cutscene_adv_index = 0
 cutscene_adv_phase = "panning"
 cutscene_adv_timer = 0
@@ -311,14 +309,6 @@ while running:
                     intro_line_index += 1
                     if intro_line_index >= len(INTRO_TEXT):
                         cutscene_stage = None
-                elif cutscene_stage == "simple":
-                    cutscene_line_index += 1
-                    if cutscene_line_index >= len(CUTSCENE_SIMPLE):
-                        cutscene_stage = "advanced"
-                        cutscene_adv_index = 0
-                        cutscene_adv_phase = "panning"
-                        cutscene_adv_timer = 0
-                        cutscene_camera_start = (camera_x, camera_y)
                 elif cutscene_stage == "advanced_finale":
                     cutscene_stage = None
                 elif cutscene_stage == "advanced":
@@ -334,8 +324,11 @@ while running:
                     active_npc = None
                     if not cutscene_triggered and all(q["delivered"] for q in quests):
                         cutscene_triggered = True
-                        cutscene_stage = "simple"
-                        cutscene_line_index = 0
+                        cutscene_stage = "advanced"
+                        cutscene_adv_index = 0
+                        cutscene_adv_phase = "panning"
+                        cutscene_adv_timer = 0
+                        cutscene_camera_start = (camera_x, camera_y)
                 else:
                     opened = False
                     for quest in quests:
@@ -516,7 +509,7 @@ while running:
     elif cutscene_stage is None:
         camera_x = round(player_x - screen_width / 2 + camera_x_offset)
         camera_y = round(player_y - screen_height / 2 + camera_y_offset)
-    # while "simple" or "advanced_finale" is active the camera stays where it last was
+    # while "advanced_finale" is active the camera stays where it last was
 
     shake_amount = post_fx.shake_trauma ** 2
     render_camera_x = camera_x + round(random.uniform(-1, 1) * shake_amount * SHAKE_MAX_OFFSET)
@@ -622,8 +615,6 @@ while running:
         draw_dialogue_box(game_surface, dialogue_text)
     elif cutscene_stage == "intro":
         draw_dialogue_box(game_surface, INTRO_TEXT[intro_line_index], hint=CONTINUE_PROMPT)
-    elif cutscene_stage == "simple":
-        draw_dialogue_box(game_surface, CUTSCENE_SIMPLE[cutscene_line_index], hint=CONTINUE_PROMPT)
     elif cutscene_stage == "advanced":
         current_quest = quests[cutscene_adv_index]
         draw_cutscene_caption(game_surface, CUTSCENE_ADVANCED_CAPTIONS[current_quest["id"]])

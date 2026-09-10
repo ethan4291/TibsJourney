@@ -46,15 +46,6 @@ DINO_NAMES = {
     "red": "the red dino family",
 }
 
-CUTSCENE_SIMPLE = [
-    "Tib has found every last baby dino and brought them home safe.",
-    "The yellow dino nuzzles her hatchling, humming a soft, happy tune.",
-    "The blue dino wraps her tiny egg in a warm, relieved embrace.",
-    "The green dino gives a sleepy, contented sigh, curling up beside his little one.",
-    "The red dino lets out a joyful roar that echoes gently through the jungle.",
-    "All four families, together again, thanks to you, Tib.",
-]
-
 CUTSCENE_ADVANCED_CAPTIONS = {
     "yellow": "The yellow family basks together in the warm sunlight.",
     "blue": "The blue family huddles close, safe from the storm at last.",
