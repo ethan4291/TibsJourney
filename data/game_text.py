@@ -54,3 +54,6 @@ CUTSCENE_ADVANCED_CAPTIONS = {
 }
 
 CUTSCENE_ADVANCED_FINALE = "Congratulations, Tib! Every baby dinosaur is home safe."
+
+YOU_WIN_TITLE = "You Win!"
+YOU_WIN_SUBTITLE = "Tib the hero!"

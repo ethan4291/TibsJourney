@@ -13,6 +13,8 @@ from data.game_text import (
     INTRO_TEXT,
     CUTSCENE_ADVANCED_CAPTIONS,
     CUTSCENE_ADVANCED_FINALE,
+    YOU_WIN_TITLE,
+    YOU_WIN_SUBTITLE,
 )
 from data.post_fx import PostFX
 from data.particles import ParticleSystem
@@ -185,12 +187,14 @@ active_npc = None  # tuple of (kind, quest_id) where kind is "egg" or "dino"
 carried_quest = None
 dialogue_font = pygame.font.SysFont("couriernew", 26)
 prompt_font = pygame.font.SysFont("couriernew", 20, bold=True)
+you_win_title_font = pygame.font.SysFont("couriernew", 64, bold=True)
+you_win_subtitle_font = pygame.font.SysFont("couriernew", 28, bold=True)
 
 #intro cutscene (plays once at the start of the game)
 intro_line_index = 0
 
 #cutscene state (plays once every egg has been returned to its parent)
-cutscene_stage = "intro"  # "intro" | None | "advanced" | "advanced_finale"
+cutscene_stage = "intro"  # "intro" | None | "advanced" | "advanced_finale" | "you_win"
 cutscene_triggered = False
 cutscene_adv_index = 0
 cutscene_adv_phase = "panning"
@@ -198,6 +202,12 @@ cutscene_adv_timer = 0
 cutscene_camera_start = (0, 0)
 CUTSCENE_PAN_DURATION = 900
 CUTSCENE_HOLD_DURATION = 1600
+
+#"you win" cutscene (plays once, right after the advanced finale)
+you_win_timer = 0
+you_win_camera_anchor = (0, 0)
+you_win_confetti_timer = 0
+CONFETTI_COLORS = [(255, 90, 140), (255, 210, 90), (110, 220, 255), (140, 230, 130), (200, 140, 255)]
 
 egg_size = round(tile_size * camera_zoom * 0.75)
 egg_overlap = round(egg_size * 0.35)
@@ -293,6 +303,24 @@ def draw_cutscene_finale(surface, text, hint=INTERACT_PROMPT):
     surface.blit(hint_surface, (screen_width / 2 - hint_surface.get_width() / 2, start_y + total_height + 30))
 
 
+def draw_you_win_title(surface, ticks):
+    bounce = math.sin(ticks / 220) * 10
+    wobble = math.sin(ticks / 90) * 4
+
+    title_surface = you_win_title_font.render(YOU_WIN_TITLE, True, (255, 230, 90))
+    title_x = screen_width / 2 - title_surface.get_width() / 2 + wobble
+    title_y = 70 + bounce
+    shadow_surface = you_win_title_font.render(YOU_WIN_TITLE, True, black)
+    surface.blit(shadow_surface, (title_x + 4, title_y + 4))
+    surface.blit(title_surface, (title_x, title_y))
+
+    subtitle_surface = you_win_subtitle_font.render(YOU_WIN_SUBTITLE, True, white)
+    surface.blit(subtitle_surface, (screen_width / 2 - subtitle_surface.get_width() / 2, title_y + title_surface.get_height() + 10))
+
+    hint_surface = prompt_font.render(CONTINUE_PROMPT, True, white)
+    surface.blit(hint_surface, (screen_width / 2 - hint_surface.get_width() / 2, screen_height - 50))
+
+
 camera_x = round(player_x - screen_width / 2 + camera_x_offset)
 camera_y = round(player_y - screen_height / 2 + camera_y_offset)
 
@@ -310,6 +338,11 @@ while running:
                     if intro_line_index >= len(INTRO_TEXT):
                         cutscene_stage = None
                 elif cutscene_stage == "advanced_finale":
+                    cutscene_stage = "you_win"
+                    you_win_timer = 0
+                    you_win_confetti_timer = 0
+                    you_win_camera_anchor = (round(player_x), round(player_y))
+                elif cutscene_stage == "you_win":
                     cutscene_stage = None
                 elif cutscene_stage == "advanced":
                     pass
@@ -509,7 +542,20 @@ while running:
     elif cutscene_stage is None:
         camera_x = round(player_x - screen_width / 2 + camera_x_offset)
         camera_y = round(player_y - screen_height / 2 + camera_y_offset)
+    elif cutscene_stage == "you_win":
+        anchor_x, anchor_y = you_win_camera_anchor
+        camera_x = round(anchor_x - screen_width / 2 + camera_x_offset)
+        camera_y = round(anchor_y - screen_height / 2 + camera_y_offset)
     # while "advanced_finale" is active the camera stays where it last was
+
+    if cutscene_stage == "you_win":
+        you_win_timer += frame_time
+        you_win_confetti_timer += frame_time
+        if you_win_confetti_timer >= 180:
+            you_win_confetti_timer = 0
+            confetti_x = player_rect.centerx + random.uniform(-40, 40)
+            confetti_y = player_rect.top - 10
+            particles.spawn_sparkles(confetti_x, confetti_y, random.choice(CONFETTI_COLORS), count=10)
 
     shake_amount = post_fx.shake_trauma ** 2
     render_camera_x = camera_x + round(random.uniform(-1, 1) * shake_amount * SHAKE_MAX_OFFSET)
@@ -556,8 +602,20 @@ while running:
 
     show_player = cutscene_stage not in ("advanced", "advanced_finale")
     if show_player:
+        you_win_hop_offset = 0
+        if cutscene_stage == "you_win":
+            #happy hop animation: alternate facing direction each hop, squash on landing, stretch mid-air
+            hop_cycle = 650
+            hop_phase = (you_win_timer % hop_cycle) / hop_cycle
+            hop_curve = math.sin(hop_phase * math.pi)
+            hop_index = int(you_win_timer // hop_cycle)
+            player_is_flipped = hop_index % 2 == 1
+            player_image = player_jump_frame if hop_curve > 0.15 else player_idle_image
+            you_win_hop_offset = round(46 * hop_curve)
+            hop_squash_x = 1.0 - 0.2 * hop_curve
+            hop_squash_y = 1.0 + 0.3 * hop_curve
         #scale using camera zoom
-        if not player_on_ground and player_vertical_velocity < 0:
+        elif not player_on_ground and player_vertical_velocity < 0:
             player_image = player_jump_frame
         elif not player_on_ground:
             player_image = player_fall_frame
@@ -574,14 +632,17 @@ while running:
         if player_on_ground and abs(player_horizontal_velocity) <= 0.1:
             idle_squash_y = 1.0 + math.sin(pygame.time.get_ticks() / 300) * 0.02
 
-        stretched_width = max(1, round(scaled_player_image.get_width() * squash_x))
-        stretched_height = max(1, round(scaled_player_image.get_height() * squash_y * idle_squash_y))
+        draw_squash_x = hop_squash_x if cutscene_stage == "you_win" else squash_x
+        draw_squash_y = hop_squash_y if cutscene_stage == "you_win" else squash_y * idle_squash_y
+
+        stretched_width = max(1, round(scaled_player_image.get_width() * draw_squash_x))
+        stretched_height = max(1, round(scaled_player_image.get_height() * draw_squash_y))
         stretched_player_image = pygame.transform.scale(scaled_player_image, (stretched_width, stretched_height))
 
         player_center_x = round(player_x + player_rect.width / 2)
         player_feet_y = round(player_y + player_rect.height)
         player_draw_x = player_center_x - stretched_width // 2
-        player_draw_y = player_feet_y - stretched_height
+        player_draw_y = player_feet_y - stretched_height - you_win_hop_offset
         game_surface.blit(stretched_player_image, (player_draw_x - render_camera_x, player_draw_y - render_camera_y))
 
         if carried_quest:
@@ -621,6 +682,8 @@ while running:
         draw_cutscene_heart(game_surface, current_quest["dino_rect"], render_camera_x, render_camera_y, pygame.time.get_ticks())
     elif cutscene_stage == "advanced_finale":
         draw_cutscene_finale(game_surface, CUTSCENE_ADVANCED_FINALE, hint=CONTINUE_PROMPT)
+    elif cutscene_stage == "you_win":
+        draw_you_win_title(game_surface, pygame.time.get_ticks())
 
     post_fx.render(game_surface)
     pygame.display.flip()
