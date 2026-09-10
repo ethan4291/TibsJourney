@@ -330,6 +330,10 @@ while running:
                             carried_quest = quest_id
                             eggpickup_sound.play()
                     active_npc = None
+                    if not cutscene_triggered and all(q["delivered"] for q in quests):
+                        cutscene_triggered = True
+                        cutscene_stage = "simple"
+                        cutscene_line_index = 0
                 else:
                     opened = False
                     for quest in quests:
@@ -361,10 +365,6 @@ while running:
                                     post_fx.add_flash(0.55)
                                     post_fx.add_shake(0.4)
                                     hitstop_timer = 90
-                                    if not cutscene_triggered and all(q["delivered"] for q in quests):
-                                        cutscene_triggered = True
-                                        cutscene_stage = "simple"
-                                        cutscene_line_index = 0
                                 else:
                                     dialogue_text = DIALOGUE[quest["ask"]]
                                 break
