@@ -139,6 +139,8 @@ player_fall_frame = playerfall
 player_x = 2750
 player_y = 700
 player_speed = 5
+SPRINT_SPEED = 9  # top horizontal speed while holding shift to sprint
+SPRINT_ANIM_SPEED_MULTIPLIER = 1.8  # how much faster the walk animation plays while sprinting
 player_frame_index = 0
 player_frame_timer = 0
 player_frame_delay = 100  # milliseconds per frame
@@ -394,15 +396,17 @@ while running:
     left_pressed = keys[pygame.K_LEFT] or keys[pygame.K_a]
     right_pressed = keys[pygame.K_RIGHT] or keys[pygame.K_d]
     jump_input = keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]
+    sprint_pressed = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
     if dialogue_active or cutscene_stage is not None:
-        left_pressed = right_pressed = jump_input = False
+        left_pressed = right_pressed = jump_input = sprint_pressed = False
     jump_pressed = jump_input and not jump_input_previous
     horizontal_input = int(right_pressed) - int(left_pressed)
+    current_max_speed = SPRINT_SPEED if sprint_pressed else player_speed
 
     if hitstop_timer <= 0:
         if horizontal_input != 0:
             player_horizontal_velocity += horizontal_input * acceleration
-            player_horizontal_velocity = max(-player_speed, min(player_speed, player_horizontal_velocity))
+            player_horizontal_velocity = max(-current_max_speed, min(current_max_speed, player_horizontal_velocity))
             player_is_flipped = horizontal_input < 0
         elif player_horizontal_velocity > 0:
             player_horizontal_velocity = max(0, player_horizontal_velocity - deceleration)
@@ -441,8 +445,11 @@ while running:
             post_fx.add_shake(0.08)
 
         if abs(player_horizontal_velocity) > 0.1 and player_on_ground:
+            current_frame_delay = player_frame_delay
+            if sprint_pressed:
+                current_frame_delay /= SPRINT_ANIM_SPEED_MULTIPLIER
             player_frame_timer += frame_time
-            if player_frame_timer >= player_frame_delay:
+            if player_frame_timer >= current_frame_delay:
                 player_frame_timer = 0
                 player_frame_index = (player_frame_index + 1) % len(player_walk_frames)
         else:
