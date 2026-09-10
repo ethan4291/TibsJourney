@@ -329,21 +329,6 @@ while running:
                         if carried_quest is None and not quest["delivered"]:
                             carried_quest = quest_id
                             eggpickup_sound.play()
-                    elif kind == "dino":
-                        if carried_quest == quest_id and not quest["delivered"]:
-                            carried_quest = None
-                            quest["delivered"] = True
-                            dino_rect = quest["dino_rect"]
-                            if dino_rect:
-                                dino_color = DINO_COLORS.get(quest_id, white)
-                                particles.spawn_sparkles(dino_rect.centerx, dino_rect.centery, dino_color, count=24)
-                            post_fx.add_flash(0.55)
-                            post_fx.add_shake(0.4)
-                            hitstop_timer = 90
-                            if not cutscene_triggered and all(q["delivered"] for q in quests):
-                                cutscene_triggered = True
-                                cutscene_stage = "simple"
-                                cutscene_line_index = 0
                     active_npc = None
                 else:
                     opened = False
@@ -367,6 +352,19 @@ while running:
                                     dialogue_text = DIALOGUE[quest["done"]]
                                 elif carried_quest == quest["id"]:
                                     dialogue_text = DIALOGUE[quest["thanks"]]
+                                    carried_quest = None
+                                    quest["delivered"] = True
+                                    dino_rect = quest["dino_rect"]
+                                    if dino_rect:
+                                        dino_color = DINO_COLORS.get(quest["id"], white)
+                                        particles.spawn_sparkles(dino_rect.centerx, dino_rect.centery, dino_color, count=24)
+                                    post_fx.add_flash(0.55)
+                                    post_fx.add_shake(0.4)
+                                    hitstop_timer = 90
+                                    if not cutscene_triggered and all(q["delivered"] for q in quests):
+                                        cutscene_triggered = True
+                                        cutscene_stage = "simple"
+                                        cutscene_line_index = 0
                                 else:
                                     dialogue_text = DIALOGUE[quest["ask"]]
                                 break
