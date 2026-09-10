@@ -30,7 +30,7 @@ DIALOGUE = {
     "greendino_thanks": "Well would you look at that! Home safe and sound. Thank you kindly, little one.",
     "greendino_done": "Ahh, nothing like a nap next to my hatchling. Thanks again for finding her, Tib.",
 
-    "red_egg": "Hey! Over here! Get me out of these thorns and back to my father before he tears this whole jungle apart looking for me!",
+    "red_egg": "Hey! Over here! Get me out of here! and back to my father before he tears this whole jungle apart looking for me!",
     "reddino_ask": "GRRAH! Where is my egg?! I will not rest until my child is found! ...Please, Tib, will you help me search?",
     "reddino_thanks": "You found my egg! I could roar with joy! Thank you, Tib, you have my eternal respect!",
     "reddino_done": "My fierce little one is home. Nothing in this jungle scares me more than losing my child, so... thank you.",
