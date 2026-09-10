@@ -1,0 +1,45 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install dependencies
+        run: |
+          if (Test-Path requirements.txt) {
+            pip install -r requirements.txt
+          } else {
+            pip install pygame-ce pyinstaller
+          }
+        shell: powershell
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build TibsJourney
+        run: |
+          pyinstaller --onefile --windowed --name TibsJourney --add-data "data;data" main.py
+
+      - name: Upload TibsJourney EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: TibsJourney-Windows
+          path: dist/TibsJourney.exe
